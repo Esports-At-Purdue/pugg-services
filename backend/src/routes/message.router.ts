@@ -1,7 +1,7 @@
 import express, {Request, Response} from "express";
 import Student from "../../../shared/models/student.ts";
 import Protected from "../protected.ts";
-import CustomMessage from "../../../shared/models/custom.message.ts";
+import CustomMessage from "../../../shared/models/message.ts";
 
 export default class MessageRouter {
     public readonly router;

@@ -1,6 +1,13 @@
 import Database from "../database.ts";
 import {NotFoundError} from "../error.ts";
 import Axios from "axios";
+import {
+    Client,
+    GatewayIntentBits,
+    Partials,
+    MessageMentionTypes,
+} from "discord.js";
+import Command from "../../discord/src/command.ts";
 
 export default class Bot {
     public readonly id: string;
@@ -15,7 +22,7 @@ export default class Bot {
 
     public get axios() {
         return Axios.create({
-            baseURL: Bun.env.DISCORD_URL,
+            baseURL: Bun.env.DISCORD_API_URL,
             withCredentials: true,
             headers: {
                 Authorization: `Bearer ${this.settings.token}`
@@ -23,22 +30,51 @@ export default class Bot {
         })
     }
 
+    public get options() {
+        return {
+            intents: [
+                GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers,
+                GatewayIntentBits.GuildModeration, GatewayIntentBits.GuildVoiceStates,
+                GatewayIntentBits.GuildPresences, GatewayIntentBits.GuildMessages,
+                GatewayIntentBits.GuildMessageReactions, GatewayIntentBits.MessageContent
+            ],
+            partials: [
+                Partials.Message
+            ],
+            allowedMentions: {
+                parse: [ "users" ] as MessageMentionTypes[]
+            }
+        };
+    }
+
+    public async registerCommands(client: Client, commands: Command[]) {
+        console.log(`Registering Commands for: ${client}`)
+        const guild = await client.guilds.fetch(this.settings.serverId);
+        const guildCommands = commands.filter(command => command.botName == this.name);
+        const globalCommands = commands.filter(command => command.global);
+        await guild.commands.set(guildCommands.map(command => command.builder.toJSON()));
+        await client.application?.commands.set(globalCommands.map(command => command.builder.toJSON()));
+    }
+
     public async save() {
         const query = { id: this.id };
         const update = { $set: this };
         const options = { upsert: true };
-        return await Database.bots.updateOne(query, update, options);
+        const result = await Database.bots.updateOne(query, update, options);
+        if (!result.acknowledged) throw new Error(`Unable to save bot: ${this.id}`);
+        return this;
     }
 
     public static async fetch(id: string) {
         const query = { id: id };
         const bot = await Database.bots.findOne(query);
         if (!bot) throw new NotFoundError(`Bot Not Found: ${id}`);
-        return bot;
+        return new Bot(bot.id, bot.name, bot.settings);
     }
 
     public static async fetchAll() {
-        return await Database.bots.find().toArray();
+        const bots = await Database.bots.find().toArray();
+        return bots.map(bot => new Bot(bot.id, bot.name, bot.settings));
     }
 }
 

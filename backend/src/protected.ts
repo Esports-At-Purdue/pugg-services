@@ -10,7 +10,7 @@ export default function Protected(controller: (req: Request, res: Response) => P
                 return;
             }
 
-            const user = req.user as User;
+            //const user = req.user as User;
 
             await controller(req, res);
         } catch (error) {

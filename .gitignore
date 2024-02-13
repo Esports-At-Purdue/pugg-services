@@ -1,8 +1,5 @@
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 
-# Idea
-.idea
-
 # Logs
 
 logs
@@ -172,3 +169,6 @@ dist
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Custom
+/google.json

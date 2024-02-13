@@ -1,5 +1,5 @@
 import express, {Request, Response} from "express";
-import Passport from "../../passport.ts";
+import Passport from "../passport.ts";
 
 export default class AuthRouter {
     public readonly router: express.Router;

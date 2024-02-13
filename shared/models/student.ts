@@ -18,17 +18,19 @@ export default class Student {
         const query = { id: this.id };
         const update = { $set: this };
         const options = { upsert: true };
-        return await Database.students.updateOne(query, update, options);
+        const result = await Database.students.updateOne(query, update, options);
+        if (!result.acknowledged) throw new Error(`Unable to save student: ${this.id}`);
+        return this;
     }
 
     public static async fetch(id: string) {
         const query = { id: id };
         const student = await Database.students.findOne(query);
-        if (!student) throw new NotFoundError(`Student Not Found: ${id}`);
-        return student;
+        if (student) return new Student(student.id, student.username, student.email, student.verified);
     }
 
     public static async fetchAll() {
-        return await Database.students.find().toArray();
+        const students = await Database.students.find().toArray();
+        return students.map(student => new Student(student.id, student.username, student.email, student.verified));
     }
 }
