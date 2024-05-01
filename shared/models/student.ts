@@ -1,13 +1,12 @@
 import Database from "../database.ts";
-import {NotFoundError} from "../error.ts";
 
 export default class Student {
-    public readonly id: string;
-    public username: string;
-    public email: string;
-    public verified: boolean;
+    public readonly id: Id;
+    public username:    string;
+    public email:       string;
+    public verified:    boolean;
 
-    public constructor(id: string, username: string, email: string, verified: boolean) {
+    public constructor(id: Id, username: string, email: string, verified: boolean) {
         this.id = id;
         this.username = username;
         this.email = email;
@@ -23,7 +22,7 @@ export default class Student {
         return this;
     }
 
-    public static async fetch(id: string) {
+    public static async fetch(id: Id) {
         const query = { id: id };
         const student = await Database.students.findOne(query);
         if (student) return new Student(student.id, student.username, student.email, student.verified);

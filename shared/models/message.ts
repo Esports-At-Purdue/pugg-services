@@ -3,14 +3,14 @@ import Database from "../database.ts";
 import {NotFoundError} from "../error.ts";
 
 export default class CustomMessage {
-    public readonly id: string;
-    public readonly botId: string;
-    public content?: string;
-    public embeds?: APIEmbed[];
-    public components?: APIMessageComponent[];
-    public attachments?: APIAttachment[];
+    public readonly id:     Id;
+    public readonly botId:  Id;
+    public content?:        string;
+    public embeds?:         APIEmbed[];
+    public components?:     APIMessageComponent[];
+    public attachments?:    APIAttachment[];
 
-    public constructor(id: string, botId: string, content?: string, embeds?: APIEmbed[], components?: APIMessageComponent[], attachments?: APIAttachment[]) {
+    public constructor(id: Id, botId: Id, content?: string, embeds?: APIEmbed[], components?: APIMessageComponent[], attachments?: APIAttachment[]) {
         this.id = id;
         this.botId = botId;
         this.content = content;
@@ -28,7 +28,7 @@ export default class CustomMessage {
         return this;
     }
 
-    public static async fetch(id: string, botId: string) {
+    public static async fetch(id: Id, botId: Id) {
         const query = { id: id, botId: botId };
         const message = await Database.messages.findOne(query);
         if (!message) throw new NotFoundError(`CustomMessage Not Found: ${id}`);

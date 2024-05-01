@@ -19,7 +19,7 @@ Database.connect().then(async () => {
     app.use("/bots", new BotRouter().router);
     app.use("/students", new StudentRouter().router);
     app.use("/tickets", new TicketRouter().router);
-    app.use("/gmessages", new MessageRouter().router);
+    app.use("/messages", new MessageRouter().router);
     app.listen(Bun.env.BACKEND_PORT);
     console.log(`Listening on ${Bun.env.BACKEND_PORT}`);
 });

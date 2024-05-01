@@ -23,12 +23,12 @@ const builder = new SlashCommandBuilder()
         .setRequired(true)
     );
 
-
 async function execute(interaction: ChatInputCommandInteraction, bot: Bot) {
     const activityName = interaction.options.getString("activity_name") as string;
     const activityType = interaction.options.getInteger("activity_type") as ActivityType;
 
     bot.settings.status = { name: activityName, type: activityType };
+    interaction.client.user.setActivity(bot.settings.status);
     await bot.save();
 
     await interaction.reply({ content: "Success", ephemeral: true });

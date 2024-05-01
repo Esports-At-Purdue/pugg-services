@@ -4,7 +4,8 @@ import {
     ActionRow,
     AuditLogEvent,
     ButtonComponent,
-    Client, EmbedBuilder,
+    Client,
+    EmbedBuilder,
     Events,
     Guild,
     GuildAuditLogsEntry,
@@ -35,22 +36,29 @@ import LftCommand from "./commands/csgo/lft.ts";
 import LfpCommand from "./commands/csgo/lfp.ts";
 import LfpEditCommand from "./commands/csgo/lfp.edit.ts";
 import LftEditCommand from "./commands/csgo/lft.edit.ts";
+import Queue from "./queue.ts";
+import {handleQueueAction} from "./utils/queue.ts";
+import ErrorEmbed from "./embeds/error.embed.ts";
 
-class CommandCache {
-    private map = new Map<string, Command>;
+interface Nameable {
+    name: string
+}
+
+class Cache<T extends Nameable> {
+    private map = new Map<string, T>;
 
     get all() {
         return Array.from(this.map.values());
     }
 
     public get(name: string) {
-        const command = this.map.get(name);
-        if (!command) throw new Error(`Unknown Command: ${name}`);
-        return command;
+        const value = this.map.get(name);
+        if (!value) throw new Error(`Unknown Value: ${name}`);
+        return value;
     }
 
-    public set(command: Command) {
-        this.map.set(command.name, command);
+    public set(value: T) {
+        this.map.set(value.name, value);
     }
 }
 
@@ -58,7 +66,8 @@ function EventHandler(handler: Function, bot: Bot) {
     return (...args: any[]) => handler(bot, ...args);
 }
 
-const commands = new CommandCache();
+const queues = new Cache<Queue>();
+const commands = new Cache<Command>();
 commands.set(new HelpCommand());
 commands.set(new SayCommand());
 commands.set(new StatusCommand());
@@ -89,8 +98,10 @@ Database.connect().then(async () => {
 });
 
 async function ready(bot: Bot, client: Client) {
-    client.user?.setActivity({ name: bot.settings.status.name, type: bot.settings.status.type });
+    client.user?.setActivity(bot.settings.status);
     await bot.registerCommands(client, commands.all);
+    const botQueues = await bot.loadQueues(client, bot.settings.queues);
+    for (const queue of botQueues) queues.set(queue);
     console.log(bot.name + " is ready at " + client.readyAt?.toISOString());
 
     // Random Logic
@@ -98,122 +109,146 @@ async function ready(bot: Bot, client: Client) {
         const channel = await client.channels.fetch("956741361435037696") as TextChannel;
         const message = await channel.messages.fetch("962134602623885332");
         await message.edit({ embeds: [
-            new EmbedBuilder()
-                .setTitle("Welcome to PUGG")
-                .setDescription("Thanks for joining the Purdue University Gamers Group discord server!\n" +
-                    "\n" +
-                    "To view the full server, click the button below to get the <@&224771028679655426> role. You will only see announcements until you do this.\n" +
-                    "\n" +
-                    "The verified Purdue and Esports roles, as well as the individual game roles, can be found in <#887080782668136478>.\n" +
-                    "\n" +
-                    "Thanks again for checking us out, and if you have any questions, just find the relevant text channel!")
+                new EmbedBuilder()
+                    .setTitle("Welcome to PUGG")
+                    .setDescription("Thanks for joining the Purdue University Gamers Group discord server!\n" +
+                        "\n" +
+                        "To view the full server, click the button below to get the <@&224771028679655426> role. You will only see announcements until you do this.\n" +
+                        "\n" +
+                        "The verified Purdue and Esports roles, as well as the individual game roles, can be found in <#887080782668136478>.\n" +
+                        "\n" +
+                        "Thanks again for checking us out, and if you have any questions, just find the relevant text channel!")
             ]
         });
     }
 }
 
 async function messageCreate(bot: Bot, message: Message) {
+    try {
+        if (message.partial) return;
 
-    if (message.partial) return;
+        if (message.channelId == "1143326543351910470") {
+            if (!message.author.bot) {
+                try {
+                    setTimeout(() => {
+                        message.delete();
+                    }, 1000);
+                } catch {  }
+            }
+        }
 
-    if (message.channelId == "1143326543351910470") {
         if (!message.author.bot) {
-            try {
-                setTimeout(() => {
-                    message.delete();
-                }, 1000);
-            } catch {  }
+            const content = message.content;
+
+            if (content.includes("//twitter.com") || content.includes("//x.com")) {
+                const newContent = content.replace("//twitter.com", "//fxtwitter.com").replace("//x.com", "//fxtwitter.com");
+                setTimeout(() => { message.delete() }, 1000);
+                await message.channel.send( {
+                    content: `<@${message.author.id}> says:\n> ${newContent}`,
+                    components: [ new DeleteComponent(message.author.id) ],
+                    allowedMentions: { parse: [  ] }
+                })
+            }
+
+            if (content.includes("//tiktok.com") || content.includes("www.tiktok.com")) {
+                const newContent = content.replace("//tiktok.com", "//vxtiktok.com").replace("www.tiktok.com", "www.vxtiktok.com");
+                setTimeout(() => { message.delete() }, 1000);
+                await message.channel.send( {
+                    content: `<@${message.author.id}> says:\n> ${newContent}`,
+                    components: [ new DeleteComponent(message.author.id) ],
+                    allowedMentions: { parse: [  ] }
+                })
+            }
         }
-    }
 
-    if (!message.author.bot) {
-        const content = message.content;
+        if (bot.name == BotName.CSMemers) {
+            if (message.author.id == "655390915325591629") {
+                const votes = Starboard.parseNumberFromString(message.content);
+                const embeds = message.embeds;
 
-        if (content.includes("//twitter.com") || content.includes("//x.com")) {
-            const newContent = content.replace("//twitter.com", "//fxtwitter.com").replace("//x.com", "//fxtwitter.com");
-            setTimeout(() => { message.delete() }, 1000);
-            await message.channel.send( {
-                content: `<@${message.author.id}> says:\n> ${newContent}`,
-                components: [ new DeleteComponent(message.author.id) ],
-                allowedMentions: { parse: [  ] }
-            })
-        }
+                if (embeds.length < 1) return;
 
-        if (content.includes("//tiktok.com") || content.includes("www.tiktok.com")) {
-            const newContent = content.replace("//tiktok.com", "//vxtiktok.com").replace("www.tiktok.com", "www.vxtiktok.com");
-            setTimeout(() => { message.delete() }, 1000);
-            await message.channel.send( {
-                content: `<@${message.author.id}> says:\n> ${newContent}`,
-                components: [ new DeleteComponent(message.author.id) ],
-                allowedMentions: { parse: [  ] }
-            })
-        }
-    }
+                const messageUrlButton = message.components?.at(0)?.components?.at(0) as ButtonComponent | undefined;
+                const messageUrl = messageUrlButton?.url;
+                const urlParts = messageUrl?.split('/');
+                const channelId = urlParts?.at(5);
+                const messageId = urlParts?.at(6);
 
-    if (bot.name == BotName.CSMemers) {
-        if (message.author.id == "655390915325591629") {
-            const votes = Starboard.parseNumberFromString(message.content);
-            const embeds = message.embeds;
-
-            if (embeds.length < 1) return;
-
-            const messageUrlButton = message.components[0].components[0] as ButtonComponent;
-            const messageUrl = messageUrlButton.url as string;
-            const urlParts = messageUrl.split('/');
-            const channelId = urlParts[5];
-            const messageId = urlParts[6];
-
-            await new Starboard(messageId, channelId, votes).save();
-        }
-        /* No more necessary
-        if (memeArray.includes(message.author.id)) {
-            memeArray.splice(memeArray.indexOf(message.author.id), 1);
-            const attachment = await new MemeImage(message.author).draw();
-            const memeMessage = await message.reply({ files: [ attachment ], allowedMentions: { repliedUser: true } });
-            const channel = await this.channels.fetch("1073037578653138974") as DMChannel;
-            await channel.send({ content: "Good Hit: " + memeMessage.url});
-        } else {
-            if (1000 * Math.random() < 1) {
+                if (messageId && channelId && votes) {
+                    await new Starboard(messageId, channelId, votes).save();
+                }
+            }
+            /* No more necessary
+            if (memeArray.includes(message.author.id)) {
+                memeArray.splice(memeArray.indexOf(message.author.id), 1);
                 const attachment = await new MemeImage(message.author).draw();
                 const memeMessage = await message.reply({ files: [ attachment ], allowedMentions: { repliedUser: true } });
                 const channel = await this.channels.fetch("1073037578653138974") as DMChannel;
-                await channel.send({ content: "Random Hit: " + memeMessage.url});
+                await channel.send({ content: "Good Hit: " + memeMessage.url});
+            } else {
+                if (1000 * Math.random() < 1) {
+                    const attachment = await new MemeImage(message.author).draw();
+                    const memeMessage = await message.reply({ files: [ attachment ], allowedMentions: { repliedUser: true } });
+                    const channel = await this.channels.fetch("1073037578653138974") as DMChannel;
+                    await channel.send({ content: "Random Hit: " + memeMessage.url});
+                }
             }
+             */
         }
-         */
+    } catch (e: unknown) {
+        const channel = await message.client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "MessageCreate Error");
+        await channel.send({ embeds: [ embed ] });
     }
 }
 
 async function messageUpdate(bot: Bot, oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage) {
+    try {
+        if (bot.name != BotName.CSMemers) {
+            return;
+        }
 
-    if (bot.name == BotName.CSMemers) {
         await oldMessage.fetch();
         newMessage = await newMessage.fetch();
 
-        if (newMessage.author.id == "655390915325591629") {
-            const buttonRow = newMessage.components[0] as ActionRow<ButtonComponent>;
-            if (buttonRow) {
-                const data = await Starboard.parseMessage(newMessage);
-                if (data) {
-                    const starboardMessage = await Starboard.fetch(data.id);
-                    if (starboardMessage) {
-                        starboardMessage.votes = Starboard.parseNumberFromString(newMessage.content);
-                        await starboardMessage.save();
-                    }
-                }
-            } else {
-                const data = await Starboard.parseOldMessage(newMessage);
-                if (data) {
-                    const starboardMessage = await Starboard.fetch(data.id);
-                    if (starboardMessage) {
-                        starboardMessage.votes = Starboard.parseNumberFromString(newMessage.content);
-                        await starboardMessage.save();
-                    }
-                }
+        if (newMessage.author.id != "655390915325591629") {
+            return;
+        }
+
+        const buttonRow = newMessage.components[0] as ActionRow<ButtonComponent>;
+
+        if (buttonRow) {
+            const data = await Starboard.parseMessage(newMessage);
+
+            if (!data) {
+                return
             }
 
+            const starboardMessage = await Starboard.fetch(data.id);
+            if (starboardMessage) {
+                starboardMessage.votes = Starboard.parseNumberFromString(newMessage.content);
+                await starboardMessage.save();
+            }
+        } else {
+            const data = await Starboard.parseOldMessage(newMessage);
+
+            if (!data) {
+                return
+            }
+
+            const starboardMessage = await Starboard.fetch(data.id);
+            if (starboardMessage) {
+                starboardMessage.votes = Starboard.parseNumberFromString(newMessage.content);
+                await starboardMessage.save();
+            }
         }
+
+    } catch (e: unknown) {
+        const channel = await newMessage.client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "MessageUpdate Error");
+        await channel.send({ embeds: [ embed ] });
     }
+
 }
 
 async function interactionCreate(bot: Bot, interaction: Interaction) {
@@ -224,133 +259,177 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
     if (!channel) throw new Error("Missing Interaction Channel");
     if (!guild) throw new Error("Missing Interaction Guild");
 
-    const member = await guild.members.fetch(interaction.member.user.id);
-    const adminRoleIds = bot.settings.roles.admins;
-    const isAdmin = member.roles.cache.some(role => adminRoleIds.some(roleId => role.id == roleId));
+    try {
+        const member = await guild.members.fetch(interaction.member.user.id);
+        const adminRoleIds = bot.settings.roles.admins;
+        const isAdmin = member.roles.cache.some(role => adminRoleIds.some(roleId => role.id == roleId));
 
-    if (interaction.isMessageComponent()) {
-        const id = interaction.customId;
-        const args = id.split(",");
+        if (interaction.isMessageComponent()) {
+            const id = interaction.customId;
+            const args = id.split(",");
 
-        if (interaction.isButton()) {
-            switch (args[0]) {
-                case "role": {
-                    const roleId = args[1];
-                    const role = await guild.roles.fetch(roleId);
-                    await handleRoleInteraction(interaction, bot, member, role);
-                } break;
+            if (interaction.isButton()) {
+                switch (args[0]) {
+                    case "role": {
+                        const roleId = args[1];
+                        const role = await guild.roles.fetch(roleId);
+                        await handleRoleInteraction(interaction, bot, member, role);
+                    } break;
 
-                default: { // Legacy Role Button Support
-                    const roleId = args[0];
-                    const role = await guild.roles.fetch(roleId);
-                    await handleRoleInteraction(interaction, bot, member, role);
+                    case "delete": {
+                        const authorId = args[1];
+                        const userId = interaction.user.id;
+
+                        if (!isAdmin && authorId != userId) {
+                            await interaction.reply({ content: "You don't have permission to do this.", ephemeral: true });
+                            return;
+                        }
+
+                        await interaction.message.delete();
+
+                    } break;
+
+                    case "queue": {
+                        const name = args[1];
+                        const action = args[2] as QueueAction;
+                        const queue = queues.get(name);
+                        await handleQueueAction(queue, action, interaction);
+                    } break;
+
+                    default: { // Legacy Role Button Support
+                        const roleId = args[0];
+                        const role = await guild.roles.fetch(roleId);
+                        await handleRoleInteraction(interaction, bot, member, role);
+                    }
+                }
+            }
+
+            if (interaction.isStringSelectMenu()) {
+                switch (args[0]) {
+                    case "role": {
+                        const roleId = interaction.values[0];
+                        const role = await guild.roles.fetch(roleId);
+                        await handleRoleInteraction(interaction, bot, member, role);
+                    } break;
+
+                    case "sheets": {
+                        const type = args[1];
+                        const value = interaction.values[0];
+                        await handleSheetsInteraction(interaction, type, value, args[2]);
+                    } break;
+
+                    default: { // Legacy Role Select Support
+                        const roleId = interaction.values[0];
+                        const role = await guild.roles.fetch(roleId);
+                        await handleRoleInteraction(interaction, bot, member, role);
+                    }
+                }
+            }
+
+            if (interaction.isUserSelectMenu()) {
+                switch (args[0]) {
+                    default: {
+                        await interaction.reply({ content: "This menu is not available", ephemeral: true });
+                    }
+                }
+            }
+
+            if (interaction.isRoleSelectMenu()) {
+                switch (args[0]) {
+                    default: {
+                        await interaction.reply({ content: "This menu is not available", ephemeral: true });
+                    }
                 }
             }
         }
 
-        if (interaction.isStringSelectMenu()) {
+        if (interaction.isModalSubmit()) {
+            const id = interaction.customId;
+            const args = id.split(",");
+
             switch (args[0]) {
-                case "role": {
-                    const roleId = interaction.values[0];
-                    const role = await guild.roles.fetch(roleId);
-                    await handleRoleInteraction(interaction, bot, member, role);
+                case "purdue": {
+                    const email = interaction.fields.getTextInputValue("email");
+                    await handlePurdueModal(interaction, bot, member, email);
                 } break;
 
-                case "sheets": {
-                    const type = args[1];
-                    const value = interaction.values[0];
-                    await handleSheetsInteraction(interaction, type, value, args[2]);
+                case "lft": { // BoilerCS Specific
+                    await handleLftModal(interaction, member);
                 } break;
 
-                default: { // Legacy Role Select Support
-                    const roleId = interaction.values[0];
-                    const role = await guild.roles.fetch(roleId);
-                    await handleRoleInteraction(interaction, bot, member, role);
-                }
-            }
-        }
+                case "lfp": { // BoilerCS Specific
+                    const teamName = args[1];
+                    await handleLfpModal(interaction, member, teamName);
+                } break;
 
-        if (interaction.isUserSelectMenu()) {
-            switch (args[0]) {
+                case "sheets": { // BoilerCS Specific
+                    await handleSheetsModal(interaction, args);
+                } break;
+
                 default: {
-                    await interaction.reply({ content: "This menu is not available", ephemeral: true });
+                    await interaction.reply({ content: "This modal is not available", ephemeral: true });
                 }
             }
         }
 
-        if (interaction.isRoleSelectMenu()) {
-            switch (args[0]) {
-                default: {
-                    await interaction.reply({ content: "This menu is not available", ephemeral: true });
-                }
+        if (interaction.isChatInputCommand()) {
+            const name = interaction.commandName;
+            const command = commands.get(name);
+
+            if (command.restricted && !isAdmin) {
+                await interaction.reply({ content: "You don't have permission to use this command.", ephemeral: true });
+                return;
             }
+
+            await command.execute(interaction, bot);
         }
-    }
-
-    if (interaction.isModalSubmit()) {
-        const id = interaction.customId;
-        const args = id.split(",");
-
-        switch (args[0]) {
-            case "purdue": {
-                const email = interaction.fields.getTextInputValue("email");
-                await handlePurdueModal(interaction, bot, member, email);
-            } break;
-
-            case "lft": { // BoilerCS Specific
-                await handleLftModal(interaction, member);
-            } break;
-
-            case "lfp": { // BoilerCS Specific
-                const teamName = args[1];
-                await handleLfpModal(interaction, member, teamName);
-            } break;
-
-            case "sheets": { // BoilerCS Specific
-                await handleSheetsModal(interaction, args);
-            } break;
-
-            default: {
-                await interaction.reply({ content: "This modal is not available", ephemeral: true });
-            }
-        }
-    }
-
-    if (interaction.isChatInputCommand()) {
-        const name = interaction.commandName;
-        const command = commands.get(name);
-
-        if (command.restricted && !isAdmin) {
-            await interaction.reply({ content: "You don't have permission to use this command.", ephemeral: true });
-            return;
-        }
-
-        await command.execute(interaction, bot);
+    } catch (e: unknown) {
+        const channel = await interaction.client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "Interaction Error");
+        await channel.send({ embeds: [ embed ] });
     }
 }
 
 async function guildMemberAdd(bot: Bot, member: GuildMember) {
-    const guild = await member.client.guilds.fetch(bot.settings.serverId);
-    const channel = await guild.channels.fetch(bot.settings.channels.join) as TextChannel;
-    await channel.send({  embeds: [ new JoinEmbed(member) ] });
-    const student = await Student.fetch(member.id);
-    if ((student && student.verified) || bot.name == BotName.CSMemers) {
-        if (bot.settings.roles.member) await member.roles.add(bot.settings.roles.member).catch(() => {});
-        if (bot.settings.roles.purdue) await member.roles.add(bot.settings.roles.purdue).catch(() => {});
+    try {
+        const guild = await member.client.guilds.fetch(bot.settings.serverId);
+        const channel = await guild.channels.fetch(bot.settings.channels.join) as TextChannel;
+        await channel.send({  embeds: [ new JoinEmbed(member) ] });
+        const student = await Student.fetch(member.id);
+        if ((student && student.verified) || bot.name == BotName.CSMemers) {
+            if (bot.settings.roles.member) await member.roles.add(bot.settings.roles.member).catch(() => {});
+            if (bot.settings.roles.purdue) await member.roles.add(bot.settings.roles.purdue).catch(() => {});
+        }
+    } catch (e: unknown) {
+        const channel = await member.client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "GuildMemberAdd Error");
+        await channel.send({ embeds: [ embed ] });
     }
 }
 
 async function guildMemberRemove(bot: Bot, member: GuildMember | PartialGuildMember) {
-    const guild = await member.client.guilds.fetch(bot.settings.serverId);
-    const channel = await guild.channels.fetch(bot.settings.channels.leave) as TextChannel;
-    const embed = new LeaveEmbed(member);
-    await channel.send({embeds: [ embed ] });
+    try {
+        const guild = await member.client.guilds.fetch(bot.settings.serverId);
+        const channel = await guild.channels.fetch(bot.settings.channels.leave) as TextChannel;
+        const embed = new LeaveEmbed(member);
+        await channel.send({embeds: [ embed ] });
+    } catch (e: unknown) {
+        const channel = await member.client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "GuildMemberRemove Error");
+        await channel.send({ embeds: [ embed ] });
+    }
 }
 
 async function guildAuditLogEntryCreate(bot: Bot, entry: GuildAuditLogsEntry, guild: Guild) {
-    if (entry.action != AuditLogEvent.MemberBanAdd && entry.action != AuditLogEvent.MemberBanRemove) return;
-    const channel = await guild.channels.fetch(bot.settings.channels.admin) as TextChannel;
-    await channel.send({ embeds: [ new BanEmbed(entry as GuildAuditLogsEntry<AuditLogEvent.MemberBanAdd | AuditLogEvent.MemberBanRemove>) ]} );
+    try {
+        if (entry.action != AuditLogEvent.MemberBanAdd && entry.action != AuditLogEvent.MemberBanRemove) return;
+        const channel = await guild.channels.fetch(bot.settings.channels.admin) as TextChannel;
+        await channel.send({ embeds: [ new BanEmbed(entry as GuildAuditLogsEntry<AuditLogEvent.MemberBanAdd | AuditLogEvent.MemberBanRemove>) ]} );
+    } catch (e: unknown) {
+        const channel = await guild.client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "GuildAuditLogEntryCreate Error");
+        await channel.send({ embeds: [ embed ] });
+    }
 }
 
 console.log(`Discord: ${process.pid}`);

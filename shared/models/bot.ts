@@ -1,20 +1,16 @@
 import Database from "../database.ts";
 import {NotFoundError} from "../error.ts";
 import Axios from "axios";
-import {
-    Client,
-    GatewayIntentBits,
-    Partials,
-    MessageMentionTypes,
-} from "discord.js";
+import {Client, GatewayIntentBits, MessageMentionTypes, Partials,} from "discord.js";
 import Command from "../../discord/src/command.ts";
+import Queue from "../../discord/src/queue.ts";
 
 export default class Bot {
-    public readonly id: string;
-    public readonly name: BotName;
-    public readonly settings: BotSettings;
+    public readonly id:         Id;
+    public readonly name:       BotName;
+    public readonly settings:   BotSettings;
 
-    public constructor(id: string, name: BotName, settings: BotSettings) {
+    public constructor(id: Id, name: BotName, settings: BotSettings) {
         this.id = id;
         this.name = name;
         this.settings = settings;
@@ -48,12 +44,22 @@ export default class Bot {
     }
 
     public async registerCommands(client: Client, commands: Command[]) {
-        console.log(`Registering Commands for: ${client}`)
+        console.log(`Registering Commands for: ${client.user?.username}`)
         const guild = await client.guilds.fetch(this.settings.serverId);
         const guildCommands = commands.filter(command => command.botName == this.name);
         const globalCommands = commands.filter(command => command.global);
         await guild.commands.set(guildCommands.map(command => command.builder.toJSON()));
         await client.application?.commands.set(globalCommands.map(command => command.builder.toJSON()));
+    }
+
+    public async loadQueues(client: Client, queueSettings?: BotQueueSetting[]) {
+        if (!queueSettings || client.user?.username != "R6 Purdue") return [  ];
+        console.log(`Loading Queues for: ${client.user?.username}`);
+        return await Promise.all(queueSettings.map(async (queueSetting) => {
+            const queue = new Queue(queueSetting.name, queueSetting.channelId, queueSetting.maxSize, 60 * 60 * 1000);
+            await queue.load(client);
+            return queue;
+        }));
     }
 
     public async save() {
@@ -65,7 +71,7 @@ export default class Bot {
         return this;
     }
 
-    public static async fetch(id: string) {
+    public static async fetch(id: Id) {
         const query = { id: id };
         const bot = await Database.bots.findOne(query);
         if (!bot) throw new NotFoundError(`Bot Not Found: ${id}`);

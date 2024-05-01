@@ -2,13 +2,13 @@ import Database from "../database.ts";
 import {NotFoundError} from "../error.ts";
 
 export default class Ticket {
-    public readonly channelId: string;
-    public readonly ownerId: string;
-    public readonly reason: string;
-    public content: TicketContent[];
-    public status: TicketStatus;
+    public readonly channelId:  Id;
+    public readonly ownerId:    Id;
+    public readonly reason:     string;
+    public content:             TicketContent[];
+    public status:              TicketStatus;
 
-    public constructor(channelId: string, ownerId: string, reason: string, content: TicketContent[], status: TicketStatus) {
+    public constructor(channelId: Id, ownerId: Id, reason: string, content: TicketContent[], status: TicketStatus) {
         this.channelId = channelId;
         this.ownerId = ownerId;
         this.reason = reason;
@@ -25,7 +25,7 @@ export default class Ticket {
         return this;
     }
 
-    public static async fetch(channelId: string) {
+    public static async fetch(channelId: Id) {
         const query = { channelId: channelId };
         const ticket = await Database.tickets.findOne(query);
         if (!ticket) throw new NotFoundError(`Ticket Not Found: ${channelId}`);
@@ -37,7 +37,7 @@ export default class Ticket {
         return tickets.map(ticket => new Ticket(ticket.channelId, ticket.ownerId, ticket.reason, ticket.content, ticket.status));
     }
 
-    public static async fetchByOwner(ownerId: string) {
+    public static async fetchByOwner(ownerId: Id) {
         const query = { ownerId: ownerId };
         const tickets = await Database.tickets.find(query).toArray();
         return tickets.map(ticket => new Ticket(ticket.channelId, ticket.ownerId, ticket.reason, ticket.content, ticket.status));

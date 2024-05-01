@@ -13,11 +13,11 @@ export class Verifier {
         Verifier.timeouts.set(student.id, new Timeout(timeout, interaction));
     }
 
-    public static fetch(id: string) {
+    public static fetch(id: Id) {
         return Verifier.timeouts.get(id);
     }
 
-    public static remove(id: string): Timeout | null {
+    public static remove(id: Id): Timeout | null {
         const entry = Verifier.timeouts.get(id);
         if (!entry) return null;
         Verifier.timeouts.delete(id);
@@ -25,12 +25,12 @@ export class Verifier {
         return entry;
     }
 
-    private static timeout(id: string, interaction: ModalSubmitInteraction) {
+    private static timeout(id: Id, interaction: ModalSubmitInteraction) {
         Verifier.timeouts.delete(id);
         interaction.followUp({content: `Hey <@${id}>, your verification email has timed out. Please click the **Purdue Button** to send another one.`, ephemeral: true}).catch();
     }
 
-    public static async registerNewStudent(interaction: ModalSubmitInteraction, member: GuildMember, email: string, roleId: string) {
+    public static async registerNewStudent(interaction: ModalSubmitInteraction, member: GuildMember, email: string, roleId: Id) {
         const student = await new Student(member.id, member.user.username, email, false).save();
         const hash = Verifier.encrypt(`${member.id}-${roleId}-${Date.now()}`);
         const token = hash.iv + "-" + hash.content;
@@ -52,11 +52,7 @@ export class Verifier {
             from: Bun.env.EMAIL_USERNAME,
             to: address,
             subject: "Discord Email Verification",
-            html: `
-                <h1>PUGG Discord Account Verification</h1>
-                <p>Click the link below to verify your account:</p>
-                <p><a href="${link}">${link}</a></p>
-            `
+            html: emailHTML(link)
         };
 
         await transporter.sendMail(options);
@@ -78,4 +74,67 @@ class Timeout {
         this.timeout = timeout;
         this.interaction = interaction;
     }
+}
+
+const emailHTML = (link: string) => {
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PUGG Email Verification</title>
+        <style>
+            body {
+                font-family: 'Arial', sans-serif;
+                margin: 0;
+                padding: 0;
+                background-color: #1B1B1B;
+                color: #E8E8E8;
+            }
+            .email-container {
+                max-width: 600px;
+                margin: 40px auto;
+                background: #2A2A2A;
+                border: 1px solid #333;
+                border-radius: 8px;
+                overflow: hidden;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+            .email-header {
+                background-color: #333;
+                color: #D0BA92;
+                padding: 20px;
+                text-align: center;
+            }
+            .email-body {
+                padding: 20px;
+                line-height: 1.5;
+            }
+            .highlight {
+                color: #D0BA92;
+            }
+            .email-footer {
+                text-align: center;
+                padding: 10px;
+                font-size: 0.8em;
+                color: #E8E8E8;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="email-container">
+            <div class="email-header">
+                <h1>PUGG Email Verification</h1>
+            </div>
+            <div class="email-body">
+                <p>Please use the link below to finish verification:</p>
+                <p><strong>Verification Link:</strong> <a href="${link}" class="highlight">${link}</a></p>
+            </div>
+            <div class="email-footer">
+                This is an automated message. Please do not reply directly to this email.
+            </div>
+        </div>
+    </body>
+    </html>`
 }

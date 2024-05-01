@@ -3,11 +3,11 @@ import {NotFoundError} from "../error.ts";
 import {ButtonComponent, Message} from "discord.js";
 
 export default class Starboard {
-    public readonly id: string;
-    public readonly channelId: string;
-    public votes: number;
+    public readonly id:         Id;
+    public readonly channelId:  Id;
+    public votes:               number;
 
-    public constructor(id: string, channelId: string, votes: number) {
+    public constructor(id: Id, channelId: Id, votes: number) {
         this.id = id;
         this.channelId = channelId;
         this.votes = votes;
@@ -22,7 +22,7 @@ export default class Starboard {
         return this;
     }
 
-    public static async fetch(id: string) {
+    public static async fetch(id: Id) {
         const query = { id: id };
         const starboard = await Database.starboards.findOne(query);
         if (!starboard) throw new NotFoundError(`Starboard Not Found: ${id}`);

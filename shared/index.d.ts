@@ -19,36 +19,44 @@ declare module "bun" {
 }
 
 type CommandName = string;
-
+type Id = string;
+type QueueAction = "join" | "leave"
 
 interface BotSettings {
-    token: string;
-    serverId: string;
-    status: BotStatus;
-    roles: BotRoleSettings;
-    channels: BotChannelSettings;
+    token:      string;
+    serverId:   Id;
+    status:     BotStatus;
+    roles:      BotRoleSettings;
+    channels:   BotChannelSettings;
+    queues?:    BotQueueSetting[];
 }
 
 interface BotStatus {
-    name: string;
-    type: number;
+    name:   string;
+    type:   number;
 }
 
 interface BotChannelSettings {
-    log: string;
-    join: string;
-    leave: string;
-    admin: string;
-    general: string;
+    log:        string;
+    join:       string;
+    leave:      string;
+    admin:      string;
+    general:    string;
 }
 
 interface BotRoleSettings {
-    member?: string;
-    purdue?: string;
-    admins: string[];
+    member?:    string;
+    purdue?:    string;
+    admins:     string[];
 }
 
 interface TicketContent {
-    authorId: string;
-    content: string;
+    authorId:   string;
+    content:    string;
+}
+
+interface BotQueueSetting {
+    name:       string;
+    maxSize:    number;
+    channelId:  Id;
 }
