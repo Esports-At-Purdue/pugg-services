@@ -56,7 +56,7 @@ export default class Bot {
         if (!queueSettings || client.user?.username != "R6 Purdue") return [  ];
         console.log(`Loading Queues for: ${client.user?.username}`);
         return await Promise.all(queueSettings.map(async (queueSetting) => {
-            const queue = new Queue(queueSetting.name, queueSetting.channelId, queueSetting.maxSize, 60 * 60 * 1000);
+            const queue = new Queue(queueSetting.name, queueSetting.channelId, queueSetting.maxSize, 5000);
             await queue.load(client);
             return queue;
         }));

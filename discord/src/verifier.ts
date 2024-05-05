@@ -27,7 +27,7 @@ export class Verifier {
 
     private static timeout(id: Id, interaction: ModalSubmitInteraction) {
         Verifier.timeouts.delete(id);
-        interaction.followUp({content: `Hey <@${id}>, your verification email has timed out. Please click the **Purdue Button** to send another one.`, ephemeral: true}).catch();
+        interaction.followUp({content: `Hey <@${id}>, your verification email has timed out. Please click the **Purdue Button** to send another one.`, ephemeral: true}).catch(console.log);
     }
 
     public static async registerNewStudent(interaction: ModalSubmitInteraction, member: GuildMember, email: string, roleId: Id) {

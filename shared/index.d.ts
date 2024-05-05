@@ -42,6 +42,7 @@ interface BotChannelSettings {
     leave:      string;
     admin:      string;
     general:    string;
+    deleted:    string;
 }
 
 interface BotRoleSettings {

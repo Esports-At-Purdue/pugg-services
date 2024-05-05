@@ -5,7 +5,6 @@ import {
     AuditLogEvent,
     ButtonComponent,
     Client,
-    EmbedBuilder,
     Events,
     Guild,
     GuildAuditLogsEntry,
@@ -39,6 +38,7 @@ import LftEditCommand from "./commands/csgo/lft.edit.ts";
 import Queue from "./queue.ts";
 import {handleQueueAction} from "./utils/queue.ts";
 import ErrorEmbed from "./embeds/error.embed.ts";
+import DeletedEmbed from "./embeds/deleted.embed.ts";
 
 interface Nameable {
     name: string
@@ -83,6 +83,7 @@ Database.connect().then(async () => {
             client.on(Events.ClientReady, EventHandler(ready, bot));
             client.on(Events.MessageCreate, EventHandler(messageCreate, bot));
             client.on(Events.MessageUpdate, EventHandler(messageUpdate, bot));
+            client.on(Events.MessageDelete, EventHandler(messageDelete, bot));
             client.on(Events.InteractionCreate, EventHandler(interactionCreate, bot));
             client.on(Events.GuildMemberAdd, EventHandler(guildMemberAdd, bot));
             client.on(Events.GuildMemberRemove, EventHandler(guildMemberRemove, bot));
@@ -98,28 +99,18 @@ Database.connect().then(async () => {
 });
 
 async function ready(bot: Bot, client: Client) {
-    client.user?.setActivity(bot.settings.status);
-    await bot.registerCommands(client, commands.all);
-    const botQueues = await bot.loadQueues(client, bot.settings.queues);
-    for (const queue of botQueues) queues.set(queue);
-    console.log(bot.name + " is ready at " + client.readyAt?.toISOString());
+    try {
+        client.user?.setActivity(bot.settings.status);
+        await bot.registerCommands(client, commands.all);
+        const botQueues = await bot.loadQueues(client, bot.settings.queues);
+        for (const queue of botQueues) queues.set(queue);
+        console.log(bot.name + " is ready at " + client.readyAt?.toISOString());
 
-    // Random Logic
-    if (bot.name == BotName.Pugg) {
-        const channel = await client.channels.fetch("956741361435037696") as TextChannel;
-        const message = await channel.messages.fetch("962134602623885332");
-        await message.edit({ embeds: [
-                new EmbedBuilder()
-                    .setTitle("Welcome to PUGG")
-                    .setDescription("Thanks for joining the Purdue University Gamers Group discord server!\n" +
-                        "\n" +
-                        "To view the full server, click the button below to get the <@&224771028679655426> role. You will only see announcements until you do this.\n" +
-                        "\n" +
-                        "The verified Purdue and Esports roles, as well as the individual game roles, can be found in <#887080782668136478>.\n" +
-                        "\n" +
-                        "Thanks again for checking us out, and if you have any questions, just find the relevant text channel!")
-            ]
-        });
+        // Random Logic
+    } catch (e: unknown) {
+        const channel = await client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "Ready Error");
+        await channel.send({ embeds: [ embed ] });
     }
 }
 
@@ -178,22 +169,6 @@ async function messageCreate(bot: Bot, message: Message) {
                     await new Starboard(messageId, channelId, votes).save();
                 }
             }
-            /* No more necessary
-            if (memeArray.includes(message.author.id)) {
-                memeArray.splice(memeArray.indexOf(message.author.id), 1);
-                const attachment = await new MemeImage(message.author).draw();
-                const memeMessage = await message.reply({ files: [ attachment ], allowedMentions: { repliedUser: true } });
-                const channel = await this.channels.fetch("1073037578653138974") as DMChannel;
-                await channel.send({ content: "Good Hit: " + memeMessage.url});
-            } else {
-                if (1000 * Math.random() < 1) {
-                    const attachment = await new MemeImage(message.author).draw();
-                    const memeMessage = await message.reply({ files: [ attachment ], allowedMentions: { repliedUser: true } });
-                    const channel = await this.channels.fetch("1073037578653138974") as DMChannel;
-                    await channel.send({ content: "Random Hit: " + memeMessage.url});
-                }
-            }
-             */
         }
     } catch (e: unknown) {
         const channel = await message.client.channels.fetch(bot.settings.channels.log) as TextChannel;
@@ -249,6 +224,20 @@ async function messageUpdate(bot: Bot, oldMessage: Message | PartialMessage, new
         await channel.send({ embeds: [ embed ] });
     }
 
+}
+
+async function messageDelete(bot: Bot, message: Message) {
+    if (bot.name != BotName.Valorant) {
+        return;
+    }
+
+    if (message.author.bot) {
+        return;
+    }
+
+    const channel = await message.client.channels.fetch(bot.settings.channels.deleted) as TextChannel;
+    const embed = new DeletedEmbed(message.author, message.content, message.channelId);
+    await channel.send({ embeds: [ embed ] });
 }
 
 async function interactionCreate(bot: Bot, interaction: Interaction) {

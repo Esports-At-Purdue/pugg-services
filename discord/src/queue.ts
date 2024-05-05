@@ -33,10 +33,10 @@ export default class Queue extends Map<Id, [ User, NodeJS.Timeout]> {
         const messages = await channel.messages.fetch({ limit: 10 });
 
         for (const [ _id, message ] of messages) {
-            //if (message.author.id == client.user?.id) await message.delete();
+            if (message.author.id == client.user?.id) await message.delete();
         }
 
-        //await this.update(client, `The queue has loaded!`);
+        await this.update(client, `The queue has loaded!`);
     }
 
     public get users() {
@@ -60,7 +60,7 @@ export default class Queue extends Map<Id, [ User, NodeJS.Timeout]> {
 
             this.delete(user.id);
             await this.update(interaction.client, `${user.username} has been timed out`);
-            await interaction.followUp({ content: "You have been timed out of the queue", ephemeral: true });
+            await interaction.followUp({ content: `<@${user.id}> You have been timed out of the queue`, ephemeral: true });
 
         }, this.timer);
 

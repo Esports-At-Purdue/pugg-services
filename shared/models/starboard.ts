@@ -51,11 +51,13 @@ export default class Starboard {
 
         if (embeds.length < 1) return null;
 
-        const messageUrlButton = message.components[0].components[0] as ButtonComponent;
-        const messageUrl = messageUrlButton.url as string;
-        const urlParts = messageUrl.split('/');
-        const channelId = urlParts[5];
-        const messageId = urlParts[6];
+        const messageUrlButton = message.components?.at(0)?.components.at(0) as ButtonComponent | undefined;
+        const messageUrl = messageUrlButton?.url;
+        const urlParts = messageUrl?.split('/');
+        const channelId = urlParts?.at(5);
+        const messageId = urlParts?.at(6);
+
+        if (!channelId || !messageId) return null;
 
         return {
             id: messageId,
@@ -70,13 +72,12 @@ export default class Starboard {
 
         if (embeds.length < 1) return null;
 
-        const embed = embeds[embeds.length - 1];
+        const embed = embeds.at(embeds.length - 1);
+        if (!embed || embed.fields.length < 1) return null;
+
         const fields = embed.fields;
-
-        if (embed.fields.length < 1) return null;
-
-        const field = fields[fields.length - 1];
-        const messageUrl = extractDiscordLink(field.value);
+        const field = fields.at(fields.length - 1);
+        const messageUrl = extractDiscordLink(field?.value);
 
         if (!messageUrl) return null;
 
@@ -92,12 +93,12 @@ export default class Starboard {
     }
 }
 
-function extractDiscordLink(inputString: string): string | null {
+function extractDiscordLink(inputString?: string): string | null {
     // Regular expression to match Discord message link
     const discordLinkRegex = /\[Click to jump to message!]\((https:\/\/discord\.com\/channels\/\d+\/\d+\/\d+)\s+/i;
 
     // Extract Discord link from the input string
-    const match = inputString.match(discordLinkRegex);
+    const match = inputString?.match(discordLinkRegex);
 
     // Return the Discord link if found, otherwise return null
     return match ? match[1] : null;
