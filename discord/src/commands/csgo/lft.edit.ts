@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 import Command from "../../command.ts";
 import {BotName} from "../../../../shared/models/bot.ts";
+import {ephemeralReply} from "../../utils/interaction.ts";
 
 const builder = new SlashCommandBuilder()
     .setName('lft-edit')
@@ -27,11 +28,11 @@ async function execute(interaction: ChatInputCommandInteraction) {
                 .setCustomId("sheets-lft-options")
         );
 
-    await interaction.reply({ components: [ actionRow], ephemeral: true });
+    await ephemeralReply(interaction, { components: [ actionRow] });
 }
 
 export default class LftEditCommand extends Command {
     constructor() {
-        super("lft-edit", false, true, builder, execute, BotName.CSGO);
+        super(true, builder, execute, BotName.CSGO);
     }
 }

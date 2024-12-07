@@ -1,9 +1,8 @@
 import process from "process";
 import Database from "../../shared/database.ts";
 import {
-    ActionRow,
     AuditLogEvent,
-    ButtonComponent,
+    ButtonStyle,
     Client,
     Events,
     Guild,
@@ -11,6 +10,7 @@ import {
     GuildMember,
     Interaction,
     Message,
+    ModalBuilder,
     PartialGuildMember,
     PartialMessage,
     TextChannel,
@@ -21,7 +21,6 @@ import LeaveEmbed from "./embeds/leave.embed.ts";
 import BanEmbed from "./embeds/ban.embed.ts";
 import Bot, {BotName} from "../../shared/models/bot.ts";
 import DeleteComponent from "./components/delete.component.ts";
-import Starboard from "../../shared/models/starboard.ts";
 import handleRoleInteraction from "./utils/roles.ts";
 import handleSheetsInteraction from "./utils/sheets.ts";
 import {handleLfpModal, handleLftModal, handlePurdueModal, handleSheetsModal} from "./utils/modals.ts";
@@ -39,9 +38,31 @@ import Queue from "./queue.ts";
 import {handleQueueAction} from "./utils/queue.ts";
 import ErrorEmbed from "./embeds/error.embed.ts";
 import DeletedEmbed from "./embeds/deleted.embed.ts";
+import TestCommand from "./commands/valorant/test.ts";
+import Game from "../../shared/models/game.ts";
+import {handleGameAction} from "./utils/game.ts";
+import {handleTeamAction} from "./utils/team.ts";
+import {handlePlayerAction} from "./utils/player.ts";
+import TenmansCommand from "./commands/valorant/tenmans.ts";
+import LeaderboardCommand from "./commands/valorant/leaderboard.ts";
+import {handleLeaderboardAction} from "./utils/leaderboard.ts";
+import FaceitCommand from "./commands/csgo/faceit.ts";
+import {ephemeralReply} from "./utils/interaction.ts";
+import SheetsRowModal from "./modals/sheets.row.modal.ts";
+import QuestionModal from "./modals/question.modal.ts";
+import PurdueModal from "./modals/purdue.modal.ts";
+import SetAcsPlayerModal from "./components/set.acs.player.modal.ts";
+import LftModal from "./modals/lft.modal.ts";
+import LfpModal from "./modals/lfp.modal.ts";
+import SetAcsComponent from "./components/set.acs.component.ts";
 
 interface Nameable {
     name: string
+}
+
+interface Modal {
+    name: string
+    builder: ModalBuilder
 }
 
 class Cache<T extends Nameable> {
@@ -66,7 +87,8 @@ function EventHandler(handler: Function, bot: Bot) {
     return (...args: any[]) => handler(bot, ...args);
 }
 
-const queues = new Cache<Queue>();
+export const queues = new Cache<Queue>();
+export const modals = new Cache<Modal>();
 const commands = new Cache<Command>();
 commands.set(new HelpCommand());
 commands.set(new SayCommand());
@@ -75,6 +97,10 @@ commands.set(new LftCommand());
 commands.set(new LfpCommand());
 commands.set(new LftEditCommand());
 commands.set(new LfpEditCommand());
+commands.set(new TestCommand());
+commands.set(new TenmansCommand());
+commands.set(new LeaderboardCommand());
+commands.set(new FaceitCommand());
 
 Database.connect().then(async () => {
     Bot.fetchAll().then(async (bots) => {
@@ -82,7 +108,6 @@ Database.connect().then(async () => {
             const client = new Client(bot.options);
             client.on(Events.ClientReady, EventHandler(ready, bot));
             client.on(Events.MessageCreate, EventHandler(messageCreate, bot));
-            client.on(Events.MessageUpdate, EventHandler(messageUpdate, bot));
             client.on(Events.MessageDelete, EventHandler(messageDelete, bot));
             client.on(Events.InteractionCreate, EventHandler(interactionCreate, bot));
             client.on(Events.GuildMemberAdd, EventHandler(guildMemberAdd, bot));
@@ -90,6 +115,7 @@ Database.connect().then(async () => {
             client.on(Events.GuildAuditLogEntryCreate, EventHandler(guildAuditLogEntryCreate, bot));
             client.login(bot.settings.token).catch(console.log);
         });
+
 
         const app = express();
         app.use("/verify", new VerificationRouter().router);
@@ -105,8 +131,6 @@ async function ready(bot: Bot, client: Client) {
         const botQueues = await bot.loadQueues(client, bot.settings.queues);
         for (const queue of botQueues) queues.set(queue);
         console.log(bot.name + " is ready at " + client.readyAt?.toISOString());
-
-        // Random Logic
     } catch (e: unknown) {
         const channel = await client.channels.fetch(bot.settings.channels.log) as TextChannel;
         const embed = new ErrorEmbed(e as Error, "Ready Error");
@@ -150,26 +174,12 @@ async function messageCreate(bot: Bot, message: Message) {
                     allowedMentions: { parse: [  ] }
                 })
             }
-        }
 
-        if (bot.name == BotName.CSMemers) {
-            if (message.author.id == "655390915325591629") {
-                const votes = Starboard.parseNumberFromString(message.content);
-                const embeds = message.embeds;
-
-                if (embeds.length < 1) return;
-
-                const messageUrlButton = message.components?.at(0)?.components?.at(0) as ButtonComponent | undefined;
-                const messageUrl = messageUrlButton?.url;
-                const urlParts = messageUrl?.split('/');
-                const channelId = urlParts?.at(5);
-                const messageId = urlParts?.at(6);
-
-                if (messageId && channelId && votes) {
-                    await new Starboard(messageId, channelId, votes).save();
-                }
+            if (content.includes("12-hours-after-my-shift-confused-nurse")) {
+                setTimeout(() => { message.delete() }, 1000);
             }
         }
+
     } catch (e: unknown) {
         const channel = await message.client.channels.fetch(bot.settings.channels.log) as TextChannel;
         const embed = new ErrorEmbed(e as Error, "MessageCreate Error");
@@ -177,67 +187,25 @@ async function messageCreate(bot: Bot, message: Message) {
     }
 }
 
-async function messageUpdate(bot: Bot, oldMessage: Message | PartialMessage, newMessage: Message | PartialMessage) {
+async function messageDelete(bot: Bot, message: Message | PartialMessage) {
     try {
-        if (bot.name != BotName.CSMemers) {
+        if (bot.name != BotName.Valorant) {
             return;
         }
 
-        await oldMessage.fetch();
-        newMessage = await newMessage.fetch();
-
-        if (newMessage.author.id != "655390915325591629") {
+        if (message.partial || message.author.bot) { // Typing is weird here, sometimes author/message is null
             return;
         }
 
-        const buttonRow = newMessage.components[0] as ActionRow<ButtonComponent>;
-
-        if (buttonRow) {
-            const data = await Starboard.parseMessage(newMessage);
-
-            if (!data) {
-                return
-            }
-
-            const starboardMessage = await Starboard.fetch(data.id);
-            if (starboardMessage) {
-                starboardMessage.votes = Starboard.parseNumberFromString(newMessage.content);
-                await starboardMessage.save();
-            }
-        } else {
-            const data = await Starboard.parseOldMessage(newMessage);
-
-            if (!data) {
-                return
-            }
-
-            const starboardMessage = await Starboard.fetch(data.id);
-            if (starboardMessage) {
-                starboardMessage.votes = Starboard.parseNumberFromString(newMessage.content);
-                await starboardMessage.save();
-            }
-        }
+        const channel = await message.client.channels.fetch(bot.settings.channels.deleted) as TextChannel;
+        const embed = new DeletedEmbed(message.author, message.content, Array.from(message.attachments.values()), message.channelId);
+        await channel.send({ embeds: [ embed ] });
 
     } catch (e: unknown) {
-        const channel = await newMessage.client.channels.fetch(bot.settings.channels.log) as TextChannel;
-        const embed = new ErrorEmbed(e as Error, "MessageUpdate Error");
+        const channel = await message.client.channels.fetch(bot.settings.channels.log) as TextChannel;
+        const embed = new ErrorEmbed(e as Error, "MessageDelete Error");
         await channel.send({ embeds: [ embed ] });
     }
-
-}
-
-async function messageDelete(bot: Bot, message: Message) {
-    if (bot.name != BotName.Valorant) {
-        return;
-    }
-
-    if (message.author.bot) {
-        return;
-    }
-
-    const channel = await message.client.channels.fetch(bot.settings.channels.deleted) as TextChannel;
-    const embed = new DeletedEmbed(message.author, message.content, message.channelId);
-    await channel.send({ embeds: [ embed ] });
 }
 
 async function interactionCreate(bot: Bot, interaction: Interaction) {
@@ -258,32 +226,102 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
             const args = id.split(",");
 
             if (interaction.isButton()) {
+                if (args[0] == "modal") {
+                    switch (args[1]) {
+                        case "purdue": {
+                            await interaction.showModal(new PurdueModal());
+                            break;
+                        }
+
+                        case "sheets": {
+                            await interaction.showModal(new SheetsRowModal(args[2]));
+                            break;
+                        }
+
+                        case "question": {
+                            await interaction.showModal(new QuestionModal(args[2], args[3]));
+                            break;
+                        }
+
+                        case "lft": {
+                            await interaction.showModal(new LftModal(args.slice(2)))
+                            break;
+                        }
+
+                        case "lfp": {
+                            await interaction.showModal(new LfpModal(args[2], args.slice(3)));
+                            break;
+                        }
+
+                        default: {
+                            await ephemeralReply(interaction, { content: "Unknown modal: " + args[2]});
+                            break;
+                        }
+                    }
+
+                    return;
+                }
+            }
+
+            if (interaction.isStringSelectMenu()) {
+                if (args[0] == "player") {
+                    const gameId = args[1];
+                    const playerId = interaction.values[0];
+                    const modal = new SetAcsPlayerModal(gameId, playerId);
+                    await interaction.showModal(modal);
+                    const game = await Game.fetch(Number.parseInt(gameId));
+                    const component = new SetAcsComponent(game);
+                    await interaction.message?.edit({ components: [ component ] });
+                    return;
+                }
+            }
+
+            await interaction.deferReply({ ephemeral: true });
+
+            if (interaction.isButton()) {
                 switch (args[0]) {
                     case "role": {
                         const roleId = args[1];
                         const role = await guild.roles.fetch(roleId);
                         await handleRoleInteraction(interaction, bot, member, role);
-                    } break;
+                        break;
+                    }
 
                     case "delete": {
                         const authorId = args[1];
                         const userId = interaction.user.id;
 
                         if (!isAdmin && authorId != userId) {
-                            await interaction.reply({ content: "You don't have permission to do this.", ephemeral: true });
+                            await ephemeralReply(interaction, { content: "You don't have permission to do this." });
                             return;
                         }
 
                         await interaction.message.delete();
-
-                    } break;
+                        break;
+                    }
 
                     case "queue": {
                         const name = args[1];
                         const action = args[2] as QueueAction;
                         const queue = queues.get(name);
                         await handleQueueAction(queue, action, interaction);
-                    } break;
+                        break;
+                    }
+
+                    case "game": {
+                        const id = args[1];
+                        const action = args[2] as GameAction;
+                        const game = await Game.fetch(Number(id));
+                        await handleGameAction(interaction, game, action);
+                        break;
+                    }
+
+                    case "leaderboard": {
+                        const action = args[1] as LeaderboardAction;
+                        const page = Number.parseInt(args[2]);
+                        await handleLeaderboardAction(interaction, action, page);
+                        break;
+                    }
 
                     default: { // Legacy Role Button Support
                         const roleId = args[0];
@@ -299,13 +337,32 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
                         const roleId = interaction.values[0];
                         const role = await guild.roles.fetch(roleId);
                         await handleRoleInteraction(interaction, bot, member, role);
-                    } break;
+                        break;
+                    }
 
                     case "sheets": {
                         const type = args[1];
                         const value = interaction.values[0];
                         await handleSheetsInteraction(interaction, type, value, args[2]);
-                    } break;
+                        break;
+                    }
+
+                    case "game": {
+                        const gameId = Number.parseInt(args[1]);
+                        const action = args[2] as GameAction;
+                        const game = await Game.fetch(gameId);
+                        await handleGameAction(interaction, game, action);
+                        break;
+                    }
+
+                    case "team": {
+                        const gameId = Number.parseInt(args[1]);
+                        const teamId = Number.parseInt(args[2]);
+                        const action = args[3] as TeamAction;
+                        const game = await Game.fetch(gameId);
+                        await handleTeamAction(interaction, game, teamId, action);
+                        break;
+                    }
 
                     default: { // Legacy Role Select Support
                         const roleId = interaction.values[0];
@@ -318,7 +375,7 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
             if (interaction.isUserSelectMenu()) {
                 switch (args[0]) {
                     default: {
-                        await interaction.reply({ content: "This menu is not available", ephemeral: true });
+                        await ephemeralReply(interaction, { content: "This menu is not available" });
                     }
                 }
             }
@@ -326,13 +383,14 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
             if (interaction.isRoleSelectMenu()) {
                 switch (args[0]) {
                     default: {
-                        await interaction.reply({ content: "This menu is not available", ephemeral: true });
+                        await ephemeralReply(interaction, { content: "This menu is not available" });
                     }
                 }
             }
         }
 
         if (interaction.isModalSubmit()) {
+            await interaction.deferReply({ ephemeral: true });
             const id = interaction.customId;
             const args = id.split(",");
 
@@ -340,33 +398,47 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
                 case "purdue": {
                     const email = interaction.fields.getTextInputValue("email");
                     await handlePurdueModal(interaction, bot, member, email);
-                } break;
+                    break;
+                }
 
                 case "lft": { // BoilerCS Specific
                     await handleLftModal(interaction, member);
-                } break;
+                    break;
+                }
 
                 case "lfp": { // BoilerCS Specific
                     const teamName = args[1];
                     await handleLfpModal(interaction, member, teamName);
-                } break;
+                    break;
+                }
 
                 case "sheets": { // BoilerCS Specific
                     await handleSheetsModal(interaction, args);
-                } break;
+                    break;
+                }
+
+                case "player": {
+                    const gameId = Number.parseInt(args[1]);
+                    const playerId = args[2];
+                    const action = args[3] as PlayerAction;
+                    const game = await Game.fetch(gameId);
+                    await handlePlayerAction(interaction, game, playerId, action);
+                    break;
+                }
 
                 default: {
-                    await interaction.reply({ content: "This modal is not available", ephemeral: true });
+                    await ephemeralReply(interaction, { content: "This modal is not available" });
                 }
             }
         }
 
         if (interaction.isChatInputCommand()) {
+            await interaction.deferReply({ ephemeral: true });
             const name = interaction.commandName;
             const command = commands.get(name);
 
             if (command.restricted && !isAdmin) {
-                await interaction.reply({ content: "You don't have permission to use this command.", ephemeral: true });
+                await ephemeralReply(interaction, { content: "You don't have permission to use this command." });
                 return;
             }
 
@@ -376,6 +448,10 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
         const channel = await interaction.client.channels.fetch(bot.settings.channels.log) as TextChannel;
         const embed = new ErrorEmbed(e as Error, "Interaction Error");
         await channel.send({ embeds: [ embed ] });
+        try {
+            const error = e as Error;
+            await ephemeralReply(interaction, { content: "Sorry, there was an error performing this operation. " + error.name });
+        } catch {}
     }
 }
 

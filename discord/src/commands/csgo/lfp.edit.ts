@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 import Command from "../../command.ts";
 import {BotName} from "../../../../shared/models/bot.ts";
+import {ephemeralReply} from "../../utils/interaction.ts";
 
 const builder = new SlashCommandBuilder()
     .setName('lfp-edit')
@@ -28,12 +29,12 @@ async function execute(interaction: ChatInputCommandInteraction) {
                 .setCustomId("sheets-lfp-options")
         );
 
-    await interaction.reply({ components: [ actionRow], ephemeral: true });
+    await ephemeralReply(interaction, { components: [ actionRow] });
     return;
 }
 
 export default class LfpEditCommand extends Command {
     constructor() {
-        super("lfp-edit", false, true, builder, execute, BotName.CSGO);
+        super(true, builder, execute, BotName.CSGO);
     }
 }

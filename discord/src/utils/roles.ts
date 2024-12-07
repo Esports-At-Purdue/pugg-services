@@ -2,10 +2,12 @@ import {ButtonInteraction, GuildMember, Role, StringSelectMenuInteraction} from 
 import Student from "../../../shared/models/student.ts";
 import PurdueModal from "../modals/purdue.modal.ts";
 import Bot from "../../../shared/models/bot.ts";
+import {ephemeralReply} from "./interaction.ts";
+import ShowModalComponent from "../components/show.modal.component.ts";
 
 export default async function handleRoleInteraction(interaction: ButtonInteraction | StringSelectMenuInteraction, bot: Bot, member: GuildMember, role?: Role | null) {
     if (!role) {
-        await interaction.reply({ content: "Sorry, this is a legacy role and cannot be applied.", ephemeral: true });
+        await ephemeralReply(interaction, { content: "Sorry, this is a legacy role and cannot be applied." });
         return;
     }
 
@@ -21,12 +23,12 @@ export default async function handleRoleInteraction(interaction: ButtonInteracti
 
     if (member.roles.cache.has(role.id)) {
         await member.roles.remove(role.id);
-        await interaction.reply({ content: `You removed **<@&${role.id}>**`, ephemeral: true});
+        await ephemeralReply(interaction, { content: `You removed **<@&${role.id}>**` });
         return;
     }
 
     await member.roles.add(role.id);
-    await interaction.reply({ content: `You applied **<@&${role.id}>**`, ephemeral: true });
+    await ephemeralReply(interaction, { content: `You applied **<@&${role.id}>**` });
 }
 
 async function handlePurdueRole(interaction: ButtonInteraction | StringSelectMenuInteraction, member: GuildMember, role: Role) {
@@ -34,21 +36,22 @@ async function handlePurdueRole(interaction: ButtonInteraction | StringSelectMen
 
     if (student?.verified) {
         await member.roles.add(role.id);
-        await interaction.reply({content: `You are verified. Thank you!`, ephemeral: true});
+        await ephemeralReply(interaction, {content: `You are verified. Thank you!` });
+        return;
+    } else {
+        await member.roles.remove(role.id);
+        const showModal = new ShowModalComponent("purdue");
+        await ephemeralReply(interaction, { content: "Click this button to open the form", components: [ showModal ]});
         return;
     }
-
-    await member.roles.remove(role.id);
-    const modal = new PurdueModal();
-    await interaction.showModal(modal);
 }
 
 async function handleMemberRole(interaction: ButtonInteraction | StringSelectMenuInteraction, member: GuildMember, role: Role) {
     if (member.roles.cache.has(role.id)) {
-        await interaction.reply({ content: "You already have this role", ephemeral: true });
+        await ephemeralReply(interaction, { content: "You already have this role" });
         return;
     }
 
     await member.roles.add(role.id);
-    await interaction.reply({content: "Thank you, and welcome to the server!", ephemeral: true});
+    await ephemeralReply(interaction, {content: "Thank you, and welcome to the server!" });
 }

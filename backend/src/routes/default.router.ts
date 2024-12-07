@@ -1,9 +1,4 @@
-import crypto from "crypto";
 import express, {Request, Response} from "express";
-import Student from "../../../shared/models/student.ts";
-import Protected from "../protected.ts";
-import * as fs from "fs";
-import axios from "axios";
 
 export default class DefaultRouter {
     public readonly router;
@@ -16,6 +11,7 @@ export default class DefaultRouter {
 
     private async get(req: Request, res: Response) {
         console.log("Default Router");
+        console.log(`SessionId: ${req.cookies["sessionId"]}`)
         res.sendStatus(200);
     }
 }

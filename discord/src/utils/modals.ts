@@ -2,6 +2,7 @@ import {GuildMember, ModalSubmitInteraction} from "discord.js";
 import {Verifier} from "../verifier.ts";
 import {google} from "googleapis";
 import Bot from "../../../shared/models/bot.ts";
+import {ephemeralReply} from "./interaction.ts";
 
 class Base {
     public index: number;
@@ -56,20 +57,18 @@ const sheets = google.sheets("v4");
 const auth = await google.auth.getClient({ keyFilename: "google.json", scopes: [ scope ] });
 
 export async function handlePurdueModal(interaction: ModalSubmitInteraction, bot: Bot, member: GuildMember, email: string) {
-    await interaction.deferReply({ ephemeral: true });
-
     if (!isValidEmail(email)) {
-        await interaction.editReply({content: `Sorry, the address you provided, \`${email}\`, is invalid. Please provide a valid Purdue address.` });
+        await ephemeralReply(interaction, {content: `Sorry, the address you provided, \`${email}\`, is invalid. Please provide a valid Purdue address.` });
         return;
     }
 
     if (!bot.settings.roles.purdue) {
-        await interaction.editReply({ content: "Sorry, this feature is not supported" });
+        await ephemeralReply(interaction, { content: "Sorry, this feature is not supported" });
         return;
     }
 
     await Verifier.registerNewStudent(interaction, member, email, bot.settings.roles.purdue);
-    await interaction.editReply({ content: `Sent a verification email to \`${email}\`` });
+    await ephemeralReply(interaction, { content: `Sent a verification email to \`${email}\`` });
 }
 
 export async function handleLftModal(interaction: ModalSubmitInteraction, member: GuildMember) {
@@ -89,12 +88,12 @@ export async function handleLftModal(interaction: ModalSubmitInteraction, member
     if (!player) {
         const player = new Player(member.id, 0, username, experience, hours, roles, year, other);
         await createLftPlayer(player);
-        await interaction.reply({ content: content, ephemeral: true });
+        await ephemeralReply(interaction, { content: content });
         return;
     }
 
     await updateLftPlayer(new Player(player.id, player.index, username, experience, hours, roles, year, other));
-    await interaction.reply({ content: content, ephemeral: true });
+    await ephemeralReply(interaction, { content: content });
 }
 
 export async function handleLfpModal(interaction: ModalSubmitInteraction, member: GuildMember, teamName: string) {
@@ -112,17 +111,17 @@ export async function handleLfpModal(interaction: ModalSubmitInteraction, member
     if (!team) {
         const team = new Team(member.id, 0, teamName, experience, hours, roles, year, other);
         await createLfpTeam(team);
-        await interaction.reply({content: content, ephemeral: true});
+        await ephemeralReply(interaction, { content: content });
         return;
     }
 
     if (team.ownerId != member.id) {
-        await interaction.reply({ content: "Sorry, a team with this name already exists.", ephemeral: true });
+        await ephemeralReply(interaction, { content: "Sorry, a team with this name already exists." });
         return;
     }
 
     await updateLfpTeam(new Team(team.ownerId, team.index, team.name, experience, hours, roles, year, other));
-    await interaction.reply({ content: content, ephemeral: true });
+    await ephemeralReply(interaction, { content: content });
 }
 
 export async function handleSheetsModal(interaction: ModalSubmitInteraction, args: string[]) {
@@ -133,12 +132,12 @@ export async function handleSheetsModal(interaction: ModalSubmitInteraction, arg
         const row = Number.parseInt(interaction.fields.getTextInputValue(Option.Row));
 
         if (row < 2) {
-            await interaction.reply({ content: `Row \`${row}\` is an invalid choice`, ephemeral: true});
+            await ephemeralReply(interaction, { content: `Row \`${row}\` is an invalid choice` });
             return;
         }
 
         await deleteSheetRow(type, row);
-        await interaction.reply({ content: `Deleted row ${row}`, ephemeral: true });
+        await ephemeralReply(interaction, { content: `Deleted row ${row}` });
     }
 
     if (option == Option.Question) {
@@ -146,12 +145,12 @@ export async function handleSheetsModal(interaction: ModalSubmitInteraction, arg
         const question = interaction.fields.getTextInputValue("q");
 
         if (question.length > 45) {
-            await interaction.reply({ content: `Input greater than 45 characters: \`${question}\``, ephemeral: true});
+            await ephemeralReply(interaction, { content: `Input greater than 45 characters: \`${question}\`` });
             return;
         }
 
         await editSheetQuestion(type, index, question);
-        await interaction.reply({ content: "Success", ephemeral: true });
+        await ephemeralReply(interaction, { content: "Success" });
     }
 }
 

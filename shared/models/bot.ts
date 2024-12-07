@@ -47,16 +47,16 @@ export default class Bot {
         console.log(`Registering Commands for: ${client.user?.username}`)
         const guild = await client.guilds.fetch(this.settings.serverId);
         const guildCommands = commands.filter(command => command.botName == this.name);
-        const globalCommands = commands.filter(command => command.global);
+        const globalCommands = commands.filter(command => !command.botName);
         await guild.commands.set(guildCommands.map(command => command.builder.toJSON()));
         await client.application?.commands.set(globalCommands.map(command => command.builder.toJSON()));
     }
 
     public async loadQueues(client: Client, queueSettings?: BotQueueSetting[]) {
-        if (!queueSettings || client.user?.username != "R6 Purdue") return [  ];
+        if (!queueSettings) return [  ];
         console.log(`Loading Queues for: ${client.user?.username}`);
         return await Promise.all(queueSettings.map(async (queueSetting) => {
-            const queue = new Queue(queueSetting.name, queueSetting.channelId, queueSetting.maxSize, 5000);
+            const queue = new Queue(queueSetting.name, queueSetting.channelId, queueSetting.maxSize, 60 * 60 * 1000, queueSetting.modChannelId);
             await queue.load(client);
             return queue;
         }));

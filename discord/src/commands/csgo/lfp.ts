@@ -1,8 +1,11 @@
-import {ChatInputCommandInteraction, SlashCommandBuilder} from "discord.js";
+import {ActionRowBuilder, ButtonBuilder, ChatInputCommandInteraction, SlashCommandBuilder} from "discord.js";
 import {fetchSheetQuestions} from "../../utils/sheets.ts";
 import LfpModal from "../../modals/lfp.modal.ts";
 import Command from "../../command.ts";
 import {BotName} from "../../../../shared/models/bot.ts";
+import {ephemeralReply} from "../../utils/interaction.ts";
+import {modals} from "../../index.ts";
+import ShowModalComponent from "../../components/show.modal.component.ts";
 
 const builder = new SlashCommandBuilder()
     .setName('lfp')
@@ -18,16 +21,19 @@ async function execute(interaction: ChatInputCommandInteraction) {
     const questions = await fetchSheetQuestions("lfp");
 
     if (!questions) {
-        await interaction.reply({ content: "Spreadsheet Data Not Found", ephemeral: true });
+        await ephemeralReply(interaction, { content: "Spreadsheet Data Not Found" });
         return;
     }
 
     const modal = new LfpModal(name, questions);
-    await interaction.showModal(modal);
+    modals.set({ name: name, builder: modal });
+
+    const showModal = new ShowModalComponent("lfp", name, ...questions);
+    await ephemeralReply(interaction, { content: "Click to show modal", components: [ showModal ] });
 }
 
 export default class LfpCommand extends Command {
     constructor() {
-        super("lfp", false, false, builder, execute, BotName.CSGO);
+        super(false, builder, execute, BotName.CSGO);
     }
 }

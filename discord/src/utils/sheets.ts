@@ -3,6 +3,8 @@ import {google} from "googleapis";
 import QuestionEditComponents from "../components/question.edit.components.ts";
 import SheetsRowModal from "../modals/sheets.row.modal.ts";
 import QuestionModal from "../modals/question.modal.ts";
+import ShowModalComponent from "../components/show.modal.component.ts";
+import {ephemeralReply} from "./interaction.ts";
 
 enum Type {
     Lft = "lft",
@@ -26,20 +28,20 @@ export default async function handleSheetsInteraction(interaction: StringSelectM
 
 async function handleOptions(interaction: StringSelectMenuInteraction, type: string, value: string) {
     if (value == Value.Edit) {
-        await interaction.deferReply({ ephemeral: true })
         const questions = await fetchSheetQuestions(type);
 
         if (!questions) {
-            await interaction.editReply({ content: "Spreadsheet Data Not Found" });
+            await ephemeralReply(interaction, { content: "Spreadsheet Data Not Found" });
             return;
         }
 
         const menu = new QuestionEditComponents(type, questions);
-        await interaction.editReply({ components: [ menu ] });
+        await ephemeralReply(interaction, { components: [ menu ] });
     }
 
     if (value == Value.Row) {
-        await interaction.showModal(new SheetsRowModal(type));
+        const showModal = new ShowModalComponent("sheets", type);
+        await ephemeralReply(interaction, { components: [ showModal ] });
     }
 }
 
@@ -61,6 +63,7 @@ export async function fetchSheetQuestions(type: string) {
 
 
 async function handleEdit(interaction: StringSelectMenuInteraction, type: string, value: string) {
-    await interaction.showModal(new QuestionModal(type, value));
+    const showModal = new ShowModalComponent("question", type, value);
+    await ephemeralReply(interaction, { components: [ showModal ] });
 }
 

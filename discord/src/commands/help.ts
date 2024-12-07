@@ -7,6 +7,7 @@ import {
     SlashCommandBuilder
 } from "discord.js";
 import Command from "../command.ts";
+import {ephemeralReply} from "../utils/interaction.ts";
 
 const builder = new SlashCommandBuilder()
     .setName("help")
@@ -29,7 +30,7 @@ async function execute(interaction: ChatInputCommandInteraction) {
 
     const description = parseCommands(globalCommands, filter).concat("\n").concat(parseCommands(guildCommands, filter));
     const embed = new EmbedBuilder().setDescription(description).setTitle("Help Menu").setColor("#5a69ea");
-    await interaction.reply({ embeds: [ embed ], ephemeral: true });
+    await ephemeralReply(interaction, { embeds: [ embed ] });
 }
 
 function parseCommands(commands: Collection<string,  ApplicationCommand>, filter: string) {
@@ -77,7 +78,7 @@ function toTitleCase(title: string) {
 
 export default class HelpCommand extends Command {
     constructor() {
-        super("help", true, false, builder, execute);
+        super(false, builder, execute);
     }
 }
 

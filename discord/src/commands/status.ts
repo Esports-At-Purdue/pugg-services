@@ -1,6 +1,7 @@
 import {ChatInputCommandInteraction, SlashCommandBuilder, ActivityType} from "discord.js";
 import Bot from "../../../shared/models/bot.ts";
 import Command from "../command.ts";
+import {ephemeralReply} from "../utils/interaction.ts";
 
 const builder = new SlashCommandBuilder()
     .setName("status")
@@ -31,11 +32,11 @@ async function execute(interaction: ChatInputCommandInteraction, bot: Bot) {
     interaction.client.user.setActivity(bot.settings.status);
     await bot.save();
 
-    await interaction.reply({ content: "Success", ephemeral: true });
+    await ephemeralReply(interaction, { content: "Success" });
 }
 
 export default class StatusCommand extends Command {
     constructor() {
-        super("status", true, true, builder, execute);
+        super(true, builder, execute);
     }
 }
