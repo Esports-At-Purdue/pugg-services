@@ -16,7 +16,7 @@ import GameEmbed from "./embeds/game.embed.ts";
 import GameComponents from "./components/game.components.ts";
 import {ephemeralReply} from "./utils/interaction.ts";
 
-export default class Queue extends Map<Id, [ User, Timer]> {
+export default class Queue extends Map<Id, [ User, Timer ]> {
     public readonly name:           string;
     public readonly channelId:      Id;
     public readonly modChannelId?:  Id;

@@ -8,7 +8,16 @@ const builder = new SlashCommandBuilder()
     .setName("tenmans")
     .setDescription("10-mans management")
     .addSubcommand((subcommand) => subcommand
-        .setName("reset")
+        .setName("reset-player")
+        .setDescription("reset a single player")
+        .addUserOption((user) => user
+            .setName("target")
+            .setDescription("the player to be reset")
+            .setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) => subcommand
+        .setName("reset-all")
         .setDescription("reset everyone's elo")
     )
 
@@ -23,7 +32,26 @@ async function execute(interaction: ChatInputCommandInteraction) {
     const subcommand = interaction.options.getSubcommand();
 
     switch (subcommand) {
-        case "reset": {
+        case "reset-player": {
+            const target = interaction.options.getUser("target", true);
+
+            try {
+                const player = await Player.fetch(target.id)
+                player.stats.elo = 500;
+                player.stats.games = 0;
+                player.stats.wins = 0;
+                player.stats.losses = 0;
+                await player.save();
+                await ephemeralReply(interaction, { content: `${player.username} has been completely reset`})
+
+            } catch {
+                await ephemeralReply(interaction, { content: "This user does not have any playerdata" });
+            }
+
+            break;
+        }
+
+        case "reset-all": {
             const players = await Player.fetchAll();
 
             for (const player of players) {
