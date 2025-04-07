@@ -1,6 +1,8 @@
 import Database from "../database.ts";
 import {NotFoundError} from "../error.ts";
 
+// wassup gang
+
 export default class Player {
     public readonly id: string
     public readonly username: string;
