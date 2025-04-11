@@ -37,13 +37,13 @@ export default class Player {
 
     public getEloChange(teamElo: number, opponentElo: number, opponentScore: number, isWinner: boolean) {
         const c = 1 + (10 - Math.min(opponentScore, 12)) / 50;
+        const b = 1 + (opponentElo - this.stats.elo) / opponentElo;
         if (isWinner) {
             const a = 25 * (this.stats.acs / 200) * (1 - (teamElo - opponentElo) / teamElo);
-            const b = 1 + (opponentElo - this.stats.elo) / opponentElo;
             return Math.round(a * b * c);
         } else {
             const a = 25 * (150 / this.stats.acs) * (1 - (opponentElo - teamElo) / teamElo);
-            return Math.round(a * c);
+            return Math.round(a * b * c);
         }
     }
 
