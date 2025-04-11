@@ -26,7 +26,7 @@ export default class AuthRouter {
             const user = await session.getUser();
             res.status(200).send(user);
         } catch (e) {
-            console.log(e);
+            console.log("Session not found error", e);
             res.sendStatus(404);
         }
     }
@@ -117,19 +117,19 @@ export default class AuthRouter {
                 }).redirect(createRedirect(req, host));
                 return;
             } catch (e) {
-                console.log(e);
+                console.log("Fetch discord user error", e);
                 res.sendStatus(500);
             }
 
-
         } catch (e: unknown) {
             if (e instanceof AxiosError) {
-                console.log(e);
+                console.log("Axios error on discord OAuth", e);
                 res.status(400).send(e);
                 return;
+            } else {
+                res.status(500).send("Unknown Error: " + typeof Error);
+                return;
             }
-            res.status(500).send("Unknown Error: " + typeof Error);
-            return;
         }
     }
 }

@@ -6,6 +6,7 @@ import SetScoreComponent from "../components/set.score.component.ts";
 import {queues} from "../index.ts";
 import Player from "../../../shared/models/player.ts";
 import {noReply} from "./interaction.ts";
+import {propagateGameChange} from "./game.ts";
 
 export async function handleTeamAction(interaction: StringSelectMenuInteraction, game: Game, teamIndex: number, action: TeamAction) {
     switch (action) {
@@ -55,7 +56,13 @@ export async function handleTeamAction(interaction: StringSelectMenuInteraction,
             await noReply(interaction);
             await interaction.message.edit({ content: `Team ${winningTeamIndex} has won Game ${game.id}`, embeds: [ embed ], components: [ components ] });
             await channel.send({ content: `Team ${winningTeamIndex} has won Game ${game.id}`, embeds: [ embed ] });
+            break;
         }
+
+        case "edit-score":
+            game.teams[teamIndex].score = Number.parseInt(interaction.values[0]);
+            await game.save();
+            await propagateGameChange(interaction, game);
     }
 }
 

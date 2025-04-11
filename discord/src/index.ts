@@ -47,7 +47,7 @@ import TenmansCommand from "./commands/valorant/tenmans.ts";
 import LeaderboardCommand from "./commands/valorant/leaderboard.ts";
 import {handleLeaderboardAction} from "./utils/leaderboard.ts";
 import FaceitCommand from "./commands/csgo/faceit.ts";
-import {ephemeralReply} from "./utils/interaction.ts";
+import {ephemeralReply, noReply} from "./utils/interaction.ts";
 import SheetsRowModal from "./modals/sheets.row.modal.ts";
 import QuestionModal from "./modals/question.modal.ts";
 import PurdueModal from "./modals/purdue.modal.ts";
@@ -55,6 +55,8 @@ import SetAcsPlayerModal from "./components/set.acs.player.modal.ts";
 import LftModal from "./modals/lft.modal.ts";
 import LfpModal from "./modals/lfp.modal.ts";
 import SetAcsComponent from "./components/set.acs.component.ts";
+import EditAcsPlayerModal from "./components/edit.acs.player.modal.ts";
+import getEnv from "./utils/general.ts";
 
 interface Nameable {
     name: string
@@ -154,6 +156,16 @@ async function messageCreate(bot: Bot, message: Message) {
 
         if (!message.author.bot) {
             const content = message.content;
+
+            const certifiedIssuers: string[] = ["751910711218667562", "180829355772084226", "209668895374573571", "279373401087410177", "363543084124078081"];
+
+            if (certifiedIssuers.includes(message.author.id)) {
+                if (content.includes(getEnv("SKILL_ISSUE_LINK"))) {
+                    setTimeout(() => {
+                        message.channel.send({ content: "Skill Issue" });
+                    }, 500)
+                }
+            }
 
             if (content.includes("//twitter.com") || content.includes("//x.com")) {
                 const newContent = content.replace("//twitter.com", "//fxtwitter.com").replace("//x.com", "//fxtwitter.com");
@@ -266,13 +278,22 @@ async function interactionCreate(bot: Bot, interaction: Interaction) {
             if (interaction.isStringSelectMenu()) {
                 if (args[0] == "player") {
                     const gameId = args[1];
+                    const action = args[2] as PlayerAction
                     const playerId = interaction.values[0];
-                    const modal = new SetAcsPlayerModal(gameId, playerId);
-                    await interaction.showModal(modal);
-                    const game = await Game.fetch(Number.parseInt(gameId));
-                    const component = new SetAcsComponent(game);
-                    await interaction.message?.edit({ components: [ component ] });
-                    return;
+
+                    if (action == "set-acs") {
+                        const game = await Game.fetch(Number.parseInt(gameId));
+                        const modal = new SetAcsPlayerModal(gameId, playerId);
+                        await interaction.showModal(modal);
+                        const component = new SetAcsComponent(game);
+                        await interaction.message?.edit({ components: [ component ] });
+                        return;
+                    } else if (action == "edit-acs") {
+                        const modal = new EditAcsPlayerModal(gameId, playerId);
+                        await interaction.showModal(modal);
+                        await interaction.message?.delete();
+                        return;
+                    }
                 }
             }
 

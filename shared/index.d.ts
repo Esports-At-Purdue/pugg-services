@@ -28,9 +28,9 @@ declare module "bun" {
 type CommandName = string;
 type Id = string;
 type QueueAction = "join" | "leave";
-type GameAction = "set-teams" | "set-acs" | "set-score" | "cancel" | "cancel-confirm";
-type TeamAction = "set-score";
-type PlayerAction = "set-acs";
+type GameAction = "set-teams" | "set-acs" | "set-score" | "cancel" | "edit" | "edit-acs" | "edit-score" | "cancel-confirm";
+type TeamAction = "set-score" | "edit-score";
+type PlayerAction = "set-acs" | "edit-acs";
 type LeaderboardAction = "left" | "right" | "refresh";
 
 interface BotSettings {

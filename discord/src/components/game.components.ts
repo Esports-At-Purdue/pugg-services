@@ -8,6 +8,7 @@ export default class GameComponents extends ActionRowBuilder<ButtonBuilder> {
         const setAcsDisabled = !setTeamsDisabled || !game.players.some(player => player.stats.acs == 0) || game.cancelled;
         const setScoreDisabled = !setAcsDisabled || game.teams.at(0)?.isWinner || game.teams.at(1)?.isWinner || game.cancelled;
         const setCancelDisabled = game.cancelled;
+        const setEditDisabled = !(game.teams.at(0)?.isWinner || game.teams.at(1)?.isWinner) || game.cancelled;
         this.setComponents(
             new ButtonBuilder()
                 .setLabel("Set Teams")
@@ -28,7 +29,12 @@ export default class GameComponents extends ActionRowBuilder<ButtonBuilder> {
                 .setLabel("Cancel Game")
                 .setStyle(ButtonStyle.Danger)
                 .setCustomId(["game", game.id, "cancel"].join(','))
-                .setDisabled(setCancelDisabled)
+                .setDisabled(setCancelDisabled),
+            new ButtonBuilder()
+                .setLabel("Edit Game")
+                .setStyle(ButtonStyle.Primary)
+                .setCustomId(["game", game.id, "edit"].join(','))
+                .setDisabled(setEditDisabled),
         )
     }
 }

@@ -6,18 +6,19 @@ import SetAcsComponent from "../components/set.acs.component.ts";
 import SetAcsPlayerModal from "../components/set.acs.player.modal.ts";
 import {ephemeralReply, noReply} from "./interaction.ts";
 import ShowModalComponent from "../components/show.modal.component.ts";
+import {propagateGameChange} from "./game.ts";
 
 export async function handlePlayerAction(interaction: ModalSubmitInteraction, game: Game, playerId: string, action: PlayerAction) {
+    const playerIndex = game.players.findIndex(player => player.id == playerId);
+    const teamIndex = game.teams.findIndex(team => team.players.some(player => player.id == playerId));
+    const playerIndexTeam = game.teams[teamIndex].players.findIndex(player => player.id == playerId);
+
+    game.players[playerIndex].stats.acs = Number.parseInt(interaction.fields.getTextInputValue("acs"));
+    game.teams[teamIndex].players[playerIndexTeam].stats.acs = Number.parseInt(interaction.fields.getTextInputValue("acs"));
+    await game.save();
+
     switch (action) {
         case "set-acs": {
-            const playerIndex = game.players.findIndex(player => player.id == playerId);
-            const teamIndex = game.teams.findIndex(team => team.players.some(player => player.id == playerId));
-            const playerIndexTeam = game.teams[teamIndex].players.findIndex(player => player.id == playerId);
-
-            game.players[playerIndex].stats.acs = Number.parseInt(interaction.fields.getTextInputValue("acs"));
-            game.teams[teamIndex].players[playerIndexTeam].stats.acs = Number.parseInt(interaction.fields.getTextInputValue("acs"));
-            await game.save();
-
             if (game.players.some(player => player.stats.acs == 0)) {
                 const embed = new GameEmbed(game);
                 const component = new SetAcsComponent(game);
@@ -30,6 +31,12 @@ export async function handlePlayerAction(interaction: ModalSubmitInteraction, ga
             const components = new GameComponents(game);
             await interaction.message?.edit({ embeds: [ embed ], components: [ components ] });
             await noReply(interaction);
+            break;
+        }
+
+        case "edit-acs": {
+            await propagateGameChange(interaction, game)
+            break;
         }
     }
 }

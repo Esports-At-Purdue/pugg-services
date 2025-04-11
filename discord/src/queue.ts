@@ -71,7 +71,6 @@ export default class Queue extends Map<Id, [ User, Timer ]> {
                 if (game.cancelled) continue;
                 if (game.players.some(player => player.id == user.id)) {
                     if (game.teams?.at(0)?.isWinner || game.teams?.at(1)?.isWinner) continue;
-                    console.log(game.id);
                     await ephemeralReply(interaction, { content: "You can't join the queue while in a game!" });
                     return;
                 }

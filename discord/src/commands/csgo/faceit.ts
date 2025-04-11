@@ -36,7 +36,7 @@ async function execute(interaction: ChatInputCommandInteraction) {
         await reply(interaction, { embeds: [ embed ] });
         return;
     } catch (e) {
-        console.log(e);
+        console.log("FaceIt fetch error", e);
         await ephemeralReply(interaction, { content: `Unable to retrieve faceit profile for ${nickname}` });
         return;
     }

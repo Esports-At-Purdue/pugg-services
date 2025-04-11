@@ -26,6 +26,17 @@ export default class Game {
         return this;
     }
 
+    public async fetchAllAfter() {
+        const query = { id: { $gt: this.id } };
+        const games = await Database.games.find(query).toArray();
+        return games
+            .map(game => {
+                const players = game.players.map(player => new Player(player.id, player.username, player.stats));
+                const teams = game.teams.map(team => new Team(team.players, team.elo, team.score, team.isWinner));
+                return new Game(game.id, game.queue, players, teams, game.cancelled)})
+            .sort((a, b) => a.id - b.id);
+    }
+
     public static async fetch(id: number) {
         const query = { id: id };
         const game = await Database.games.findOne(query);
